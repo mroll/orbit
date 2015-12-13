@@ -156,19 +156,17 @@
           (multiple-value-bind (x y z) (spatial-orientation orbit i)
             (format fp "~,3F ~,3F ~,3F~%" x y z)))))
 
+; newbody args: mass initial-pos
 (newbody enterprise 10 '(20 20 20))
 (newbody serenity 4 '(20 10 15))
 (newbody deathstar 30 '(7 5 5))
 (newbody sol 10000 '(0 0 0))
 
-;(make-orbit enterprise-orbit enterprise 30 0.9 4 10 2.4 1)
-;(make-orbit serenity-orbit serenity 10 0.75 10 7 3 3)
-
+; orbit args: i ecc w bigw bigt
 (make-orbit enterprise-orbit enterprise 30 0.9 4 2.4 1)
 (make-orbit serenity-orbit serenity 10 0.75 10 3 3)
 (make-orbit deathstar-orbit deathstar 0 0.2 90 0 0)
 
-; orbit args: i ecc w bigw a mu bigt
 
 (write-orbit enterprise-orbit "enterprise.orbit" 100 0.1)
 (write-orbit serenity-orbit "serenity.orbit" 100 0.1)
