@@ -1,3 +1,53 @@
+(defun intern-getter (suffix)
+  (intern (format nil "GET-~A" suffix)))
+
+; recurse over a tree and return the list of symbols
+; in the tree that are in the 'symbs' list.
+(defun symbols-used (symbs tree)
+  (remove-duplicates (cond ((null tree) nil)
+                           ((atom (car tree)) (if (member (car tree) symbs)
+                                                (append (list (car tree)) (symbols-used symbs (cdr tree)))
+                                                (symbols-used symbs (cdr tree) )))
+                           (t (append (symbols-used symbs (car tree))
+                                      (symbols-used symbs (cdr tree)))))))
+
+; common variables used as special terms in orbital equations.
+(defvar *orbitsymbs* (list 'i 'ecc 'w 'bigw 'bigt 'a 'mu))
+
+; LIST OF SPECIAL TERMS:
+; ----------------------
+; 
+; i -> inclination
+; ecc -> eccentricity
+; w -> argument of periapsis
+; bigw -> longitude of the ascending node
+; a -> semimajor axis
+; mu -> G(m1 + m2)... (m1 is the mass on the orbit and m2 is
+;                      the mass it orbits around.)
+
+; enclose the given function body in a let block that binds any
+; orbital-mechanics variables to their values in the given orbit.
+; NOTE: functions defined as an 'orbitfn' MUST be passed an
+; orbit called 'orbit' as an argument.
+(defmacro orbitfn (name args body)
+  `(defun ,name ,args
+     (let (,@(loop for s in (symbols-used *orbitsymbs* body)
+                   collect (list s `(,(intern-getter s) orbit))))
+       ,body)))
+
+(defmacro newbody (name mass initial-position)
+  `(defvar ,name (body ,mass ,initial-position)))
+
+; the semi-major axis, a, will be defined by the distance
+; from the star to the initial position of the body.
+(defmacro make-orbit (name body i ecc w bigw bigt)
+  (let ((muvar (gensym))
+        (avar  (gensym)))
+    `(let ((,muvar (solve-mu (get-mass ,body)
+                             (get-mass sol)))
+           (,avar  (solve-a ,body sol)))
+       (defvar ,name (orbit ,i ,ecc ,w ,bigw ,avar ,muvar ,bigt)))))
+
 (defun get-x (pt)
   (car pt))
 
@@ -21,7 +71,7 @@
         (delta-z (- (get-z p2) (get-z p1))))
     (sqrt (+ (sqr delta-x) (sqr delta-y) (sqr delta-z)))))
 
-(defvar G (* 6.674 (expt 10 -11)))
+(defvar *G* (* 6.674 (expt 10 -11)))
 
 (defun body (m initial-pos)
   (list m initial-pos))
@@ -44,7 +94,7 @@
 (defun get-bigt (orbit) (nth 6 orbit))
 
 (defun solve-mu (m1 m2)
-  (* G (+ m1 m2)))
+  (* *G* (+ m1 m2)))
 
 (defun solve-n (mu a)
   (* (sqrt mu) (expt a (/ -3 2))))
@@ -68,27 +118,18 @@
        (E M (+ M (* ecc-rads (sin E)))))
     ((> i 5) E)))
 
-(defun a (body)
-  (cadr body))
-
-(defun ecc (body)
-  (caddr body))
-
-(defun bigt (body)
-  (cadddr body))
-
 (defun to-coord (decimal)
   (multiple-value-bind (deg tmp) (floor decimal)
     (multiple-value-bind (min frac) (floor (* 60 tmp))
       (values deg min (truncate (* 60 frac))))))
 
 (defun solve-x (r w bigw f i)
-  (* r (- (* (cos W) (cos (+ w f)))
-          (* (sin W) (sin (+ w f)) (cos i)))))
+  (* r (- (* (cos bigw) (cos (+ w f)))
+          (* (sin bigw) (sin (+ w f)) (cos i)))))
 
 (defun solve-y (r w bigw f i)
-  (* r (+ (* (cos W) (cos (+ w f)))
-          (* (sin W) (sin (+ w f)) (cos i)))))
+  (* r (+ (* (cos bigw) (cos (+ w f)))
+          (* (sin bigw) (sin (+ w f)) (cos i)))))
 
 (defun solve-z (r w f i)
   (* r (sin (+ w f)) (sin i)))
@@ -97,55 +138,26 @@
   (* 2 (atan (* (sqrt (- 1 ecc)) (cos (/ E 2)))
              (* (sqrt (+ 1 ecc)) (sin (/ E 2))))))
 
-(defun solve-r (orbit f)
-  (let* ((e (get-ecc orbit))
-         (a (get-a orbit))
-         (p (* a (- (sqr e) 1))))
-    (/ p (+ 1 (* e (cos f))))))
+(orbitfn solve-r (orbit f)
+  (let ((p (* a (- (sqr ecc) 1))))
+    (/ p (+ 1 (* ecc (cos f))))))
 
-(defun get-3d-coords (r w bigw f i)
+(orbitfn get-3d-coords (orbit r f)
   (let ((x (solve-x r w bigw f i))
         (y (solve-y r w bigw f i))
         (z (solve-z r w f i)))
     (list x y z)))
 
-(defun get-true-anomaly (orbit time)
-  (let ((E (Kepler (solve-M (solve-n (get-mu orbit)
-                                     (get-a orbit))
+(orbitfn get-true-anomaly (orbit time)
+  (let ((E (Kepler (solve-M (solve-n mu a)
                             time
-                            (get-bigt orbit))
-                   (get-ecc orbit))))
-    (solve-f E (get-ecc orbit))))
+                            bigt)
+                   ecc)))
+    (solve-f E ecc)))
 
 (defun spatial-orientation (orbit time)
-  (let ((f (get-true-anomaly orbit time))
-        (w (get-w orbit))
-        (bigw (get-bigw orbit))
-        (i (get-i orbit)))
-    (values-list (get-3d-coords (solve-r orbit f) w bigw f i))))
-
-(defun getpos (body time mu)
-  (let* ((ecc (ecc body))
-         (a (a body))
-         (n (solve_n mu (a body)))
-         (M (solve_M n time (bigt body)))
-         (E (Kepler M ecc))
-         (r (solve_r a ecc E))
-         (V (solve_V mu r a)))
-    (values r V n M E)))
-
-(defmacro newbody (name mass initial-position)
-  `(defvar ,name (body ,mass ,initial-position)))
-
-; the semi-major axis, a, will be defined by the distance
-; from the star to the initial position of the body.
-(defmacro make-orbit (name body i ecc w bigw bigt)
-  (let ((muvar (gensym))
-        (avar  (gensym)))
-    `(let ((,muvar (solve-mu (get-mass ,body)
-                             (get-mass sol)))
-           (,avar  (solve-a ,body sol)))
-       (defvar ,name (orbit ,i ,ecc ,w ,bigw ,avar ,muvar ,bigt)))))
+  (let ((f (get-true-anomaly orbit time)))
+    (values-list (get-3d-coords orbit (solve-r orbit f) f))))
 
 (defun write-orbit (orbit fname steps step-size)
   (with-open-file (fp fname
@@ -158,16 +170,16 @@
 
 ; newbody args: mass initial-pos
 (newbody enterprise 10 '(20 20 20))
-(newbody serenity 4 '(20 10 15))
+(newbody serenity 5000 '(20 10 15))
 (newbody deathstar 30 '(7 5 5))
 (newbody sol 10000 '(0 0 0))
 
 ; orbit args: i ecc w bigw bigt
 (make-orbit enterprise-orbit enterprise 30 0.9 4 2.4 1)
 (make-orbit serenity-orbit serenity 10 0.75 10 3 3)
-(make-orbit deathstar-orbit deathstar 0 0.2 90 0 0)
+(make-orbit deathstar-orbit deathstar 0 0.2 90 5 0)
 
 
-(write-orbit enterprise-orbit "enterprise.orbit" 100 0.1)
-(write-orbit serenity-orbit "serenity.orbit" 100 0.1)
-(write-orbit deathstar-orbit "deathstar.orbit" 100 0.1)
+(write-orbit enterprise-orbit "enterprise.orbit" 1000 0.1)
+(write-orbit serenity-orbit "serenity.orbit" 1000 0.1)
+(write-orbit deathstar-orbit "deathstar.orbit" 1000 0.1)
