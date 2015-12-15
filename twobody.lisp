@@ -202,11 +202,12 @@
 (orbitsymbol 'bigt :expr '(get-bigt orbit) :precedence 1)
 
 ; hierarchical expressions
-(orbitsymbol 'f :expr '(get-true-anomaly orbit time) :precedence 1)
-(orbitsymbol 'r :expr '(solve-r orbit f) :precedence 2)
+;(orbitsymbol 'f :expr '(get-true-anomaly orbit time) :precedence 1)
+(orbitsymbol 'f :expr '(solve-f E ecc) :precedence 5 :depends '(E ecc))
+(orbitsymbol 'r :expr '(solve-r orbit f) :precedence 6)
 (orbitsymbol 'n :expr '(solve-n mu a) :precedence 2 :depends '(mu a))
 (orbitsymbol 'M :expr '(solve-M n time bigt) :precedence 3 :depends '(n bigt))
-(orbitsymbol 'E :expr '(Kepler M ecc) :precedence 4 :depends '(M ecc))
+(orbitsymbol 'E :expr '(solve-E M ecc) :precedence 4 :depends '(M ecc))
 
 ; LIST OF SPECIAL TERMS:
 ; ----------------------
@@ -315,16 +316,11 @@
   (distance3d (get-initial-pos body)
               (get-initial-pos center)))
 
-(defun Kepler (M ecc)
+(defun solve-E (M ecc)
   (do ((i 0 (1+ i))
        (ecc-rads (/ (* 180 ecc) pi) ecc-rads)
        (E M (+ M (* ecc-rads (sin E)))))
     ((> i 5) E)))
-
-(defun to-coord (decimal)
-  (multiple-value-bind (deg tmp) (floor decimal)
-    (multiple-value-bind (min frac) (floor (* 60 tmp))
-      (values deg min (truncate (* 60 frac))))))
 
 (defun solve-x (r w bigw f i)
   (* r (- (* (cos bigw) (cos (+ w f)))
@@ -350,9 +346,6 @@
         (y (solve-y r w bigw f i))
         (z (solve-z r w f i)))
     (list x y z)))
-
-(orbitfn get-true-anomaly (orbit time)
-  (solve-f E ecc))
 
 (defun write-orbit (orbit fname steps step-size)
   (with-open-file (fp fname
