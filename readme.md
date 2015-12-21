@@ -23,11 +23,11 @@ I wrote the beginnings of an interface for the game. This involved a bunch of wo
 
 Here is a picture of the current interface.
 
-![game.png](game.png)
+![orbit2.png](orbit2.png)
 
 And here is a screenshot of the result of some curses code plotting points on an elliptical orbit around a mass at the origin.
 
-![orbit2.png](orbit2.png)
+![game.png](game.png)
 
 # Running
 
