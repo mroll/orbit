@@ -18,3 +18,17 @@ My plan is to build a physics engine that will handle all the math for each two-
 I am able to define orbits in terms of five elements: [inclination](https://en.wikipedia.org/wiki/Orbital_inclination), [longitude of the ascending node](https://en.wikipedia.org/wiki/Longitude_of_the_ascending_node), [argument of periapsis](https://en.wikipedia.org/wiki/Argument_of_periapsis), [eccentricity](https://en.wikipedia.org/wiki/Orbital_eccentricity), and [semimajor axis](https://en.wikipedia.org/wiki/Semi-major_axis). Then, given those initial conditions, I can find the point in 3d space of a body at an arbitrary point in time through some math. Here is a plot of three orbits I generated using this code.
 
 ![orbit.png](orbits.png)
+
+I wrote the beginnings of an interface for the game. This involved a bunch of work with curses, a C library for handling term cap and drawing optimizations. At first I was using the :cl-ncurses Common Lisp library, but I ran into some problems. I found a 'curses.lisp' file written by Timofei Shatrov (https://common-lisp.net/project/lifp/uwar.htm), and have been using my own extended version of that to do graphics. The only thing you can do in the game right now is query a database of information about different bodies in the system, like planets. The progress up to this point has mostly been behind-the-scenes type things, like making infrastructure for doing curses graphics. So I think progress be more visible from now on.
+
+Here is a picture of the current interface.
+
+![game.png](game.png)
+
+And here is a screenshot of the result of some curses code plotting points on an elliptical orbit around a mass at the origin.
+
+![orbit2.png](orbit2.png)
+
+# Running
+
+I have been using a hack to run my game program. The file 'newcore.lisp' will, when passed a filename as a command line argument, compile a new sbcl core file that includes the libraries necessary for this project. The file 'main.lisp' has the shebang that uses this new file to execute. I am doing this because I am using quicklisp to load dependencies, and once I get around to actually installing them the run process will be cleaner.
