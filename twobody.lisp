@@ -15,8 +15,8 @@
 ;                        the mass it orbits around.)
 ; bigt -> time of perihelion passage.
 
-(defmacro newbody (name mass initial-position)
-  `(defparameter ,name (body ,mass ,initial-position)))
+(defmacro newbody (name mass)
+  `(defparameter ,name (body ,mass)))
 
 ; the semi-major axis, a, will be defined by the distance
 ; from the star to the initial position of the body.
@@ -53,8 +53,8 @@
 (defvar *G* (* 6.674 (expt 10 -11)))
 
 ; m: KILOGRAMS
-(defun body (m initial-pos)
-  (list m initial-pos))
+(defun body (m)
+  (list m))
 
 (defun get-mass (body)
   (car body))
@@ -110,10 +110,6 @@
 
 (defun solve-V (mu r a)
   (sqrt (* mu (- (/ 2 r) (/ 1 a)))))
-
-(defun solve-a (body1 body2)
-  (* 3 (distance3d (get-initial-pos body1)
-                   (get-initial-pos body2))))
 
 (defun to-deg (rads) (* (/ 180 pi) rads))
 (defun to-rad (degs) (* (/ pi 180) degs))
@@ -194,6 +190,15 @@
         (r (solve-r orbit f)))
     (values (* r (cos f))
             (* r (sin f)))))
+
+(defun write-3d-orbit (orbit fname steps step-size)
+  (with-open-file (fp fname
+                      :direction :output
+                      :if-exists :overwrite
+                      :if-does-not-exist :create)
+    (loop for i from 0 upto steps by step-size do
+          (multiple-value-bind (x y z) (get-3d-coords orbit i)
+            (format fp "~,3F ~,3F ~,3F~%" x y z)))))
 
 (defun write-2d-orbit (orbit fname steps step-size)
   (with-open-file (fp fname

@@ -29,6 +29,10 @@ And here is a screenshot of the result of some curses code plotting points on an
 
 ![game.png](game.png)
 
+**December 23, 2015** I fixed some issues with my orbital math. I ran through a calculation by hand of the orbit of the earth at an arbitrary point in time past its perihelion passage. This allowed me to see how the units line up as they pass from equation to equation. Once that was all on paper, it wasn't too hard to fix the code by "standardizing" my use of units. So I was able to get the orbital elements of Mercury, Venus, and Earth, from here [NASA factsheet](http://nssdc.gsfc.nasa.gov/planetary/factsheet/), and from Martin Zombeck's *Handbook of Space Astronomy & Astrophysics*. Here is a graph of 1000 days worth of each of those orbits.
+
+![solar_orbits.png](solar_orbits.png)
+
 # Running
 
 I have been using a hack to run my game program. The file 'newcore.lisp' will, when passed a filename as a command line argument, compile a new sbcl core file that includes the libraries necessary for this project. The file 'main.lisp' has the shebang that uses this new file to execute. I am doing this because I am using quicklisp to load dependencies, and once I get around to actually installing them the run process will be cleaner.

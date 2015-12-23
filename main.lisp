@@ -11,11 +11,16 @@
 
 ; mass is in KILOGRAMS
 ; distance is in KILOMETERS
-(newbody earth (ee 5.976  24) '(147999999 0 0))
-(newbody sol   (ee 1.9891 30) '(0 0 0))
+(newbody mercury (ee 3.3346 23))
+(newbody venus   (ee 4.8676 24))
+(newbody earth   (ee 5.976  24))
+(newbody sol     (ee 1.9891 30))
 
 ; orbit args: i ecc a w bigw bigt
-(make-orbit earth-orbit earth 0.00005 0.0167 149597000 102.94719 -11.26064 0)
+; unit time: DAYS
+(make-orbit earth-orbit   earth   0.0 0.0167 149597000 102.94719 -11.26064 0)
+(make-orbit mercury-orbit mercury 7.0 0.2056 57910000  77.45645  48.33167  0)
+(make-orbit venus-orbit   venus   3.4 0.0067 108210000 131.53298 76.68069  0)
 
 (defun main ()
   (curses:connect-console)
@@ -28,5 +33,7 @@
   (curses:getch)
   (curses:close-console))
 
-(main)
-; (write-2d-orbit earth-orbit "earth.orbit" 1000 1)
+; (main)
+(write-3d-orbit earth-orbit   "earth.orbit"   1000 1)
+(write-3d-orbit mercury-orbit "mercury.orbit" 1000 1)
+(write-3d-orbit venus-orbit   "venus.orbit"   1000 1)
