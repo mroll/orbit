@@ -158,13 +158,6 @@
     (/ (* a (- (sqr ecc) 1))
        (+ 1 (* ecc (cos f))))))
 
-(defun solve-phi (orbit r)
-  (let ((a (get-a orbit))
-        (ecc (get-ecc orbit)))
-    (realpart (asin (expt (/ (* (sqr a)
-                                (- 1 (sqr ecc)))
-                             (* r (- (* 2 a) r))) 0.5)))))
-
 (defun get-3d-coords (orbit time)
   (let* ((w (get-w orbit))
         (mu (get-mu orbit))
