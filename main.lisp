@@ -1,18 +1,32 @@
-(load "twobody.lisp")
+#!/usr/bin/env sbcl --noinform --core qlsblc --script
 
+(load "twobody.lisp")
+(load "grid.lisp")
+
+(defun ee (scalar pow)
+  (* scalar (expt 10 pow)))
 
 ; newbody args: mass initial-pos
-(newbody enterprise 10 '(20 20 20))
-(newbody serenity 5000 '(20 10 15))
-(newbody deathstar 30 '(-7 5 -5))
-(newbody sol 10000 '(0 0 0))
-
-; orbit args: i ecc w bigw bigt
-(make-orbit enterprise-orbit enterprise 30 0.9 4 2.4 1)
-(make-orbit serenity-orbit serenity 10 0.75 10 3 3)
-(make-orbit deathstar-orbit deathstar 0 0.2 90 5 0)
 
 
-(write-orbit enterprise-orbit "enterprise.orbit" 1000 0.1)
-(write-orbit serenity-orbit "serenity.orbit" 1000 0.1)
-(write-orbit deathstar-orbit "deathstar.orbit" 1000 0.1)
+; mass is in KILOGRAMS
+; distance is in KILOMETERS
+(newbody earth (ee 5.976  24) '(147999999 0 0))
+(newbody sol   (ee 1.9891 30) '(0 0 0))
+
+; orbit args: i ecc a w bigw bigt
+(make-orbit earth-orbit earth 0.00005 0.0167 149597000 102.94719 -11.26064 0)
+
+(defun main ()
+  (curses:connect-console)
+  (let ((g (grid:grid 30 100 10 75))
+        (f #'(lambda (time)
+               (multiple-value-bind (x y) (get-2d-coords earth-orbit time)
+                 (list (round (/ x 10000000)) (round (/ y 10000000)))))))
+    (grid:draw-axes g)
+    (grid:animate g (list f) 1000 1))
+  (curses:getch)
+  (curses:close-console))
+
+(main)
+; (write-2d-orbit earth-orbit "earth.orbit" 1000 1)

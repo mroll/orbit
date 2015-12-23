@@ -1,0 +1,7 @@
+(defun newtons-method (f fp p0 tol max-iter)                                                                                     
+  (flet ((nextp (p_n-1) (- p_n-1 (/ (funcall f p_n-1)                                                                            
+                                    (funcall fp p_n-1)))))                                                                       
+    (do ((i 0 (1+ i))                                                                                                            
+         (old-p p0 p)                                                                                                            
+         (p (nextp p0) (nextp p)))                                                                                               
+      ((or (> i max-iter) (< (abs (- p old-p)) tol)) p))))  

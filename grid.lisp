@@ -59,10 +59,15 @@
     (plot-point g (car pts))
     (plot-points g (cdr pts))))
 
-(defun animate (grid funcs tmax)
-  (loop for time from 0 to tmax do
+(defun legend (g label val)
+  (mvprintw (+ (height g) (starty g)) (startx g) label)
+  (mvprintw (+ (height g) (starty g)) (+ (startx g) (length label) 1) val))
+
+(defun animate (grid funcs tmax step-size)
+  (loop for time from 0 to tmax by step-size do
         ; (erase)
         (draw-axes grid)
         (plot-points grid (map 'list #'(lambda (f)
                                          (funcall f time)) funcs))
-        (sleep 0.1)))
+        (legend grid "time: " (format nil "~,4F" time))
+        (sleep 0.20)))

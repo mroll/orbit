@@ -1,3 +1,5 @@
+(load "newton.lisp")
+
 ; LIST OF SPECIAL TERMS:
 ; ----------------------
 ; 
@@ -18,21 +20,11 @@
 
 ; the semi-major axis, a, will be defined by the distance
 ; from the star to the initial position of the body.
-(defmacro make-orbit (name body i ecc w bigw bigt)
-  (let ((muvar (gensym))
-        (avar  (gensym)))
+(defmacro make-orbit (name body i ecc a w bigw bigt)
+  (let ((muvar (gensym)))
     `(let ((,muvar (solve-mu (get-mass ,body)
-                             (get-mass sol)))
-           (,avar  (solve-a ,body sol)))
-       (defparameter ,name (orbit ,i ,ecc ,w ,bigw ,avar ,muvar ,bigt)))))
-
-(defmacro make-orbit2 (name body1 body2 i ecc w bigw bigt)
-  (let ((muvar (gensym))
-        (avar  (gensym)))
-    `(let ((,muvar (solve-mu (get-mass ,body1)
-                             (get-mass ,body2)))
-           (,avar  (solve-a ,body1 ,body2)))
-       (defparameter ,name (orbit ,i ,ecc ,w ,bigw ,avar ,muvar ,bigt)))))
+                             (get-mass sol))))
+       (defparameter ,name (orbit ,i ,ecc ,w ,bigw ,a ,muvar ,bigt)))))
 
 (defun get-x (pt)
   (car pt))
@@ -57,8 +49,10 @@
         (delta-z (- (get-z p2) (get-z p1))))
     (sqrt (+ (sqr delta-x) (sqr delta-y) (sqr delta-z)))))
 
+; m^3 * kg^-1 * s^-2
 (defvar *G* (* 6.674 (expt 10 -11)))
 
+; m: KILOGRAMS
 (defun body (m initial-pos)
   (list m initial-pos))
 
@@ -79,12 +73,38 @@
 (defun get-mu (orbit) (nth 5 orbit))
 (defun get-bigt (orbit) (nth 6 orbit))
 
+; m1, m2: KILOGRAMS
 (defun solve-mu (m1 m2)
   (* *G* (+ m1 m2)))
 
-(defun solve-n (mu a)
-  (* (sqrt mu) (expt a (/ -3 2))))
+; a: METERS
+;
+; returns P: DAYS
+(defun orbital-period (a mu)
+  (/ (* 2 pi (sqrt (/ (expt a 3) mu)))
+     60 60 24))
 
+; this implementation give n in terms of PER-UNIT MASS.
+; this is probably not what we want for this problem.
+; (defun solve-n (mu a)
+;   (* (sqrt mu) (expt a (/ -3 2))))
+
+
+; this implementation gives in in terms of RADIANS PER
+; UNIT TIME. I'd say these units fit our purposes better.
+
+; a: METERS
+;
+; returns n: RADIANS / DAY
+(defun solve-n (mu a)
+  (let ((P (orbital-period a mu)))
+    (/ (* 2 pi) P)))
+
+; n:    RADIANS / DAY
+; time: DAYS
+; bigt: should be zero for testing.
+;       later there will likely be a universal start date,
+;       at which times will go from.
 (defun solve-M (n time bigt)
   (* n (- time bigt)))
 
@@ -92,14 +112,23 @@
   (sqrt (* mu (- (/ 2 r) (/ 1 a)))))
 
 (defun solve-a (body1 body2)
-  (distance3d (get-initial-pos body1)
-              (get-initial-pos body2)))
+  (* 3 (distance3d (get-initial-pos body1)
+                   (get-initial-pos body2))))
 
+(defun to-deg (rads) (* (/ 180 pi) rads))
+(defun to-rad (degs) (* (/ pi 180) degs))
+
+; M:   RADIANS
+; ecc: scalar
+;
+; returns E: RADIANS
 (defun solve-E (M ecc)
-  (do ((i 0 (1+ i))
-       (ecc-rads (/ (* 180 ecc) pi) ecc-rads)
-       (E M (+ M (* ecc-rads (sin E)))))
-    ((> i 5) E)))
+  (let ((E M)
+        (max-iter 30)
+        (tol 0.00000000010))
+    (flet ((f  (x) (- x (* ecc (sin x)) M))
+           (fp (x) (- 1 (* ecc (cos x)))))
+      (newtons-method #'f #'fp E tol max-iter))))
 
 (defun solve-x (r w bigw f i)
   (* r (- (* (cos bigw) (cos (+ w f)))
@@ -112,15 +141,29 @@
 (defun solve-z (r w f i)
   (* r (sin (+ w f)) (sin i)))
 
+; E:   RADIANS
+; ecc: scalar
+;
+; returns f: RADIANS
 (defun solve-f (E ecc)
-  (* 2 (atan (* (sqrt (- 1 ecc)) (cos (/ E 2)))
-             (* (sqrt (+ 1 ecc)) (sin (/ E 2))))))
+  (* 2 (atan (* (sqrt (+ 1 ecc)) (sin (/ E 2)))
+             (* (sqrt (- 1 ecc)) (cos (/ E 2))))))
 
+; f: RADIANS
+;
+; returns r: KILOMETERS
 (defun solve-r (orbit f)
   (let ((a (get-a orbit))
         (ecc (get-ecc orbit)))
     (/ (* a (- (sqr ecc) 1))
        (+ 1 (* ecc (cos f))))))
+
+(defun solve-phi (orbit r)
+  (let ((a (get-a orbit))
+        (ecc (get-ecc orbit)))
+    (realpart (asin (expt (/ (* (sqr a)
+                                (- 1 (sqr ecc)))
+                             (* r (- (* 2 a) r))) 0.5)))))
 
 (defun get-3d-coords (orbit time)
   (let* ((w (get-w orbit))
@@ -133,12 +176,16 @@
         (n (solve-n mu a))
         (M (solve-M n time bigt))
         (E (solve-E M ecc))
-        (f (solve-f E ecc))
-        (r (solve-r orbit f)))
+        (f (to-deg (solve-f (to-rad E) ecc)))
+        (r (solve-r orbit (to-rad f))))
     (values (solve-x r w bigw f i)
             (solve-y r w bigw f i)
             (solve-z r w f i))))
 
+(defun km->m (km)
+  (* 1000 km))
+
+; time: DAYS
 (defun get-2d-coords (orbit time)
   (let* ((w (get-w orbit))
         (mu (get-mu orbit))
@@ -147,7 +194,7 @@
         (bigt (get-bigt orbit))
         (i (get-i orbit))
         (ecc (get-ecc orbit))
-        (n (solve-n mu a))
+        (n (solve-n mu (km->m a)))
         (M (solve-M n time bigt))
         (E (solve-E M ecc))
         (f (solve-f E ecc))
@@ -155,11 +202,11 @@
     (values (* r (cos f))
             (* r (sin f)))))
 
-(defun write-orbit (orbit fname steps step-size)
+(defun write-2d-orbit (orbit fname steps step-size)
   (with-open-file (fp fname
                       :direction :output
                       :if-exists :overwrite
                       :if-does-not-exist :create)
     (loop for i from 0 upto steps by step-size do
-          (multiple-value-bind (x y z) (get-3d-coords orbit i)
-            (format fp "~,3F ~,3F ~,3F~%" x y z)))))
+          (multiple-value-bind (x y) (get-2d-coords orbit i)
+            (format fp "~,3F ~,3F~%" (/ x 1000000) (/ y 1000000))))))
