@@ -1,6 +1,7 @@
 #!/usr/bin/env sbcl --noinform --core qlsblc --script
 
 (load "curses.lisp")
+(load "grid.lisp")
 
 (defpackage :space-age
   (:use :cl :curses :cl-utilities))
@@ -13,6 +14,8 @@
 
 (defparameter iw nil)
 (defparameter pw nil)
+(defparameter gw nil)
+(defparameter system-grid nil)
 
 (defmacro action (name fn)
   `(setf (gethash ,name *actions*) ,fn))
@@ -81,9 +84,21 @@
 (defun info-body (body-name)
   (gethash body-name *bodies*))
 
+(defun info-window (stdscr-dims)
+  (let ((h (* 0.8 (first stdscr-dims)))
+        (w (* 0.7 (second stdscr-dims))))
+    (create-win h w 0 0)))
+
+(defun prompt-window (stdscr-dims)
+  (let ((y (+ 1 (* 0.8 (first stdscr-dims))))
+        (w (* 0.7 (second stdscr-dims))))
+    (create-win 3 w y (second stdscr-dims))))
+
 (defun play ()
-  (setf iw (create-win 30 200 0 0))
-  (setf pw (create-win 3  200 31 0))
+  (setf iw (create-win 64 140 0  0))
+  (setf pw (create-win 3  140 65 0))
+  (setf system-grid (grid:grid 40 60 0 142))
+  (grid:draw-axes system-grid)
   (mvplines *infoy* 2 "You are orbiting the star Aegis. You're currently at perihelion,
 at a distance of close to 150,000,000,000 meters to the star.")
   (mvplines (+ *infoy* 2) 2 (info-body "Aegis"))

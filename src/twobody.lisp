@@ -20,11 +20,14 @@
 
 ; the semi-major axis, a, will be defined by the distance
 ; from the star to the initial position of the body.
-(defmacro make-orbit (name body i ecc a w bigw bigt)
+(defmacro make-orbit (name body star i ecc a w bigw bigt)
   (let ((muvar (gensym)))
     `(let ((,muvar (solve-mu (get-mass ,body)
-                             (get-mass sol))))
+                             (get-mass ,star))))
        (defparameter ,name (orbit ,i ,ecc ,w ,bigw ,a ,muvar ,bigt)))))
+
+(defun ee (scalar pow)
+  (* scalar (expt 10 pow)))
 
 (defun get-x (pt)
   (car pt))

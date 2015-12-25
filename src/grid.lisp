@@ -70,4 +70,4 @@
         (plot-points grid (map 'list #'(lambda (f)
                                          (funcall f time)) funcs))
         (legend grid "time: " (format nil "~,4F" time))
-        (sleep 0.20)))
+        (sleep 0.10)))

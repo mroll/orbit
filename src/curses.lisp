@@ -63,7 +63,6 @@
 (defcfun "init_pair" :int (pair :short) 
          (foreground :short) (background :short))
 
-
 ;;Default colors
 
 #-unix

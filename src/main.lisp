@@ -3,9 +3,6 @@
 (load "twobody.lisp")
 (load "grid.lisp")
 
-(defun ee (scalar pow)
-  (* scalar (expt 10 pow)))
-
 ; newbody args: mass initial-pos
 
 
@@ -33,7 +30,7 @@
   (curses:getch)
   (curses:close-console))
 
-; (main)
-(write-3d-orbit earth-orbit   "earth.orbit"   1000 1)
-(write-3d-orbit mercury-orbit "mercury.orbit" 1000 1)
-(write-3d-orbit venus-orbit   "venus.orbit"   1000 1)
+(main)
+; (write-3d-orbit earth-orbit   "earth.orbit"   1000 1)
+; (write-3d-orbit mercury-orbit "mercury.orbit" 1000 1)
+; (write-3d-orbit venus-orbit   "venus.orbit"   1000 1)
