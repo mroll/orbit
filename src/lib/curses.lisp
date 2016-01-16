@@ -7,7 +7,7 @@
   (:export :refresh :erase :move :*stdscr*
            :create-console :close-console :connect-console
            :echo :noecho
-           :addch :c-addch :mvaddch :addstr :mvaddstr
+           :addch :mvaddspch :c-addch :mvaddch :addstr :mvaddstr
            :printw :wprintw :mvprintw :mvwprintw :attron :Attroff
            :mvplines :attrset :getch :mvgetch :getyx :attrset
            :getstr :mvgetstr :getnstr :mvgetnstr
@@ -16,8 +16,10 @@
            :wrefresh :werase :waddch :mvwaddch
            :wgetch :mvwgetch :wgetstr :mvwgetstr
            :wattrset :waddstr :mvwaddstr :wgetyx
-           :ungetch :wechochar
+           :ungetch :wechochar :nodelay
            :curses-code-char :repl-console
+           :cbreak :nocbreak :wmove
+           :*A_ALTCHARSET* :*ACS_PLUS* :*ACS_DIAMOND* :*ACS_BULLET*
            ))
 
 (in-package :curses)
@@ -26,7 +28,14 @@
   (:unix "libncurses.5.4.dylib")
   (t (:default "curses")))
 
+(defvar *A_ALTCHARSET* 4194304)
+(defvar *ACS_PLUS* 110)
+(defvar *ACS_DIAMOND* 96)
+(defvar *ACS_DEGREE* 176)
+(defvar *ACS_BULLET* 102)
+
 ;(eval-when (:compile-toplevel :load-toplevel :execute)
+;
 
 (use-foreign-library curses);)
 
@@ -124,6 +133,12 @@
 (defun addch (char)
   (c-addch (char-code char)))
 
+(defun mvaddspch (y x ch)
+  (move y x)
+  (attron *A_ALTCHARSET*)
+  (c-addch ch)
+  (attroff *A_ALTCHARSET*))
+
 (defcfun ("mvaddch" c-mvaddch) :int (y :int) (x :int) (char chtype))
 
 (defun mvaddch (y x char)
@@ -203,15 +218,15 @@
   (c-attrset *stdscr* (color-code attr)))
 
 
-;(defcfun ("getch" c-getch) :int)
+(defcfun "getch" :int)
 
 (defcfun "wgetch" :int (window :pointer))
 
-(defun getch ()
-  (refresh)
-  (let ((c (wgetch *stdscr*)))
-    (mvprintw 24 1 (format nil "[~d]" c)) (refresh)
-    c))
+; (defun getch ()
+;   (refresh)
+;   (let ((c (wgetch *stdscr*)))
+;     (mvprintw 24 1 (format nil "[~d]" c)) (refresh)
+;     c))
 
 (defcfun ("mvgetch" c-mvgetch) :int (y :int) (x :int))
 
@@ -350,7 +365,9 @@ code. May be system dependent."
   (case code
     ;Numpad
     (458 #\/) (463 #\*) (464 #\-) (465 #\+) (459 #\Return)
-    (t (if (< code 256) (code-char code) #\Space))))
+    (t (if (and (> 0 code) (< code 256))
+         (code-char code)
+         #\Space))))
 
 ;;Improved version of getstr with support for keymaps.
 ;;keymap is a hash table which maps key code to the function

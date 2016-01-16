@@ -1,4 +1,9 @@
-(load "newton.lisp")
+(defpackage :twobody
+  (:use cl)
+  (:export :ee :get-2d-coords :solve-mu :orbit
+           :solve-E :solve-n :solve-M))
+
+(in-package :twobody)
 
 ; LIST OF SPECIAL TERMS:
 ; ----------------------
@@ -15,16 +20,24 @@
 ;                        the mass it orbits around.)
 ; bigt -> time of perihelion passage.
 
-(defmacro newbody (name mass)
-  `(defparameter ,name (body ,mass)))
+; (defmacro newbody (name mass)
+;   `(defparameter ,name (body ,mass)))
 
 ; the semi-major axis, a, will be defined by the distance
 ; from the star to the initial position of the body.
-(defmacro make-orbit (name body star i ecc a w bigw bigt)
+(defmacro make-orbit (body star i ecc a w bigw bigt)
   (let ((muvar (gensym)))
-    `(let ((,muvar (solve-mu (get-mass ,body)
-                             (get-mass ,star))))
-       (defparameter ,name (orbit ,i ,ecc ,w ,bigw ,a ,muvar ,bigt)))))
+    `(let ((,muvar (solve-mu (funcall ,body 'mass)
+                             (funcall ,star 'mass))))
+       (orbit ,i ,ecc ,w ,bigw ,a ,muvar ,bigt))))
+
+(defun newtons-method (f fp p0 tol max-iter)                                                                                     
+  (flet ((nextp (p_n-1) (- p_n-1 (/ (funcall f p_n-1)                                                                            
+                                    (funcall fp p_n-1)))))                                                                       
+    (do ((i 0 (1+ i))                                                                                                            
+         (old-p p0 p)                                                                                                            
+         (p (nextp p0) (nextp p)))                                                                                               
+      ((or (> i max-iter) (< (abs (- p old-p)) tol)) p))))  
 
 (defun ee (scalar pow)
   (* scalar (expt 10 pow)))
@@ -180,19 +193,19 @@
 ; time: DAYS
 (defun get-2d-coords (orbit time)
   (let* ((w (get-w orbit))
-        (mu (get-mu orbit))
-        (a (get-a orbit))
-        (bigw (get-bigw orbit))
-        (bigt (get-bigt orbit))
-        (i (get-i orbit))
-        (ecc (get-ecc orbit))
-        (n (solve-n mu (km->m a)))
-        (M (solve-M n time bigt))
-        (E (solve-E M ecc))
-        (f (solve-f E ecc))
-        (r (solve-r orbit f)))
-    (values (* r (cos f))
-            (* r (sin f)))))
+         (mu (get-mu orbit))
+         (a (get-a orbit))
+         (bigw (get-bigw orbit))
+         (bigt (get-bigt orbit))
+         (i (get-i orbit))
+         (ecc (get-ecc orbit))
+         (n (solve-n mu (km->m a)))
+         (M (solve-M n time bigt))
+         (E (solve-E M ecc))
+         (f (solve-f E ecc))
+         (r (solve-r orbit f)))
+    (list (* r (cos f))
+          (* r (sin f)))))
 
 (defun write-3d-orbit (orbit fname steps step-size)
   (with-open-file (fp fname

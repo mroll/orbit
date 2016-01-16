@@ -9,12 +9,6 @@
 
 (in-package :grid)
 
-(defvar *A_ALTCHARSET* 4194304)
-(defvar *ACS_PLUS* 110)
-(defvar *ACS_DIAMOND* 96)
-(defvar *ACS_DEGREE* 176)
-(defvar *ACS_BULLET* 102)
-
 
 (defun grid (h w starty startx)
   (list h w starty startx))
@@ -31,12 +25,6 @@
 (defun y-axis (y x h)
   (move y x)
   (vline 0 h))
-
-(defun mvaddspch (y x ch)
-  (move y x)
-  (attron *A_ALTCHARSET*)
-  (c-addch ch)
-  (attroff *A_ALTCHARSET*))
 
 (defun draw-axes (g)
   (let ((midx (+ (startx g) (/ (width g) 2)))
