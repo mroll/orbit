@@ -14,12 +14,29 @@
 (defmacro mac (expr)
   `(pprint (macroexpand-1 ',expr)))
 
+;; Graham's aif
+(defmacro aif (test then &optional else)
+  `(let ((it ,test))
+     (if it ,then ,else)))
+
+(defun mkstr (&rest args)
+  (with-output-to-string (s)
+    (dolist (a args) (princ a s))))
+
+(defun symb (&rest args)
+  (values (intern (apply #'mkstr args))))
+
+(defun str->symb (string)
+  (intern (string-upcase string)))
+
+(defmacro change-system-view (new-sys)
+  `(sys-control 'current-system (str->symb ,new-sys)))
 
 
 ; A body in motion will stay in motion at the same speed and with
 ; the same direction unless acted upon by an outside force.
 
-(defparameter *timestep* 0.2)
+(defparameter *timestep* 0.5)
 
 (defobject body (name pos mass))
 
@@ -30,24 +47,47 @@
                                (round (/ c 10000000)))
                            (get-2d-coords orbit time))))
 
-(body aegis1)
-(aegis1 'pos '(0 0 0))
-(aegis1 'mass (ee 2.047 30))
-(aegis1 'name "aegis1")
+(body sol)
+(sol 'pos '(0 0 0))
+(sol 'mass (ee 2.047 30))
+(sol 'name "sol")
 
-(planet enid)
-(enid 'mass (ee 3.3387 24))
-(let ((enid-aegis1-mu (solve-mu (enid 'mass) (aegis1 'mass))))
-  (enid 'orbit (list 0.0 0.2 102.94719 11.26064 122009599 enid-aegis1-mu 0)))
-(enid 'name "enid")
+(planet mercury)
+(mercury 'mass (ee 0.330 24))
+(let ((mercury-mu (solve-mu (mercury 'mass) (sol 'mass))))
+  (mercury 'orbit (list 7.0 0.205 77.45645 48.33167 (ee 57.91 6) mercury-mu 0)))
+(mercury 'name "mercury")
+
+(planet venus)
+(venus 'mass (ee 4.87 24))
+(let ((venus-mu (solve-mu (venus 'mass) (sol 'mass))))
+  (venus 'orbit (list 3.39 0.0067 131.53298 76.68069 (ee 108.21 6) venus-mu 0)))
+(venus 'name "venus")
 
 (planet earth)
 (earth 'mass (ee 5.976 24))
-(let ((earth-aegis1-mu (solve-mu (earth 'mass) (aegis1 'mass))))
-  (earth 'orbit (list 0.0 0.0167 102.94719 -11.26064 149597000 earth-aegis1-mu 0)))
+(let ((earth-mu (solve-mu (earth 'mass) (sol 'mass))))
+  (earth 'orbit (list 0.0 0.0167 102.94719 -11.26064 (ee 149.6 6) earth-mu 0)))
 (earth 'name "earth")
 
-; i ecc w bigw a mu bigt
+(planet mars)
+(mars 'mass (ee 0.64174 24))
+(let ((mars-mu (solve-mu (mars 'mass) (sol 'mass))))
+  (mars 'orbit (list 1.850 0.0935 336.04084 49.57854 (ee 227.92 6) mars-mu 0)))
+(mars 'name "mars")
+
+(defobject moon () :inherits planet)
+
+(defmeth moon update-pos (time)
+         (setf pos (mapcar #'(lambda (c)
+                               (round (/ c 20000)))
+                           (get-2d-coords orbit time))))
+
+(moon luna)
+(luna 'mass (ee 0.07342 24))
+(let ((luna-mu (solve-mu (luna 'mass) (earth 'mass))))
+  (luna 'orbit (list 5.145 0.0549 100.7 40.94852 (ee 384.748 3) luna-mu 0)))
+(luna 'name "luna")
 
 ;;; Window Class
 ;;; -----------------------------------------------------------------
@@ -88,7 +128,7 @@
 
 (window info-window)
 (info-window 'height 64)
-(info-window 'width  140)
+(info-window 'width  100)
 (info-window 'starty 0)
 (info-window 'startx 0)
 (info-window 'border 2)
@@ -160,9 +200,9 @@
          (refresh))
 
 (defmeth grid plot-tagged-point (tagged-p)
-         (destructuring-bind (p tag) tagged-p
-           (this 'plot p)
-           (this 'display tag (1+ (car p)) (1+ (cadr p))))
+         (destructuring-bind ((x y) tag) tagged-p
+           (this 'plot (list x y))
+           (this 'display tag (1+ x) (1+ y)))
          (refresh))
 
 (defmeth grid plot-tagged-points (tagged-points)
@@ -175,19 +215,33 @@
 ;;; -----------------------------------------------------------------
 
 (grid system-grid)
-(system-grid 'height 40)
-(system-grid 'width  60)
+(system-grid 'height 60)
+(system-grid 'width  100)
 (system-grid 'starty 0)
-(system-grid 'startx 142)
+(system-grid 'startx 102)
 (system-grid 'box nil)
 (system-grid 'border 0)
 
 
-(defparameter *bodies* (list #'earth #'enid))
+(defparameter *planets* (list #'mercury #'venus #'earth #'mars))
+(defparameter *earth-system* (list #'luna))
+(defparameter *actions* (make-hash-table))
 
-(defun handle (input)
-  (if (equal input "quit")
-    #\t))
+(defmacro action (name func)
+  `(setf (gethash ',name *actions*) ,func))
+
+(action quit #'(lambda () 'quit))
+(action zoom #'(lambda (body)
+                 (change-system-view body)))
+
+(defun handle (action)
+  (let* ((fields (split-sequence #\Space action))
+         (funcname (str->symb (car fields)))
+         (args (cdr fields)))
+    (aif (gethash funcname *actions*)
+         (if args
+            (apply it args)
+            (funcall it)))))
 
 (defmacro input-loop (handler pw &body body)
   (let ((curr-char (gensym))
@@ -208,7 +262,7 @@
               (setf ,curr-char (getch))
               (if (and (< ,curr-char 256) (> ,curr-char 0))
                 (if (eql #\return (code-char ,curr-char))
-                  (progn (setf ,quit (,handler ,input))
+                  (progn (setf ,quit (eq 'quit (,handler ,input)))
                          (,pw 'reset)
                          (setf ,input "")
                          (setf ,chars-in-prompt 0))
@@ -222,22 +276,27 @@
             (nodelay *stdscr* #\f)
             (cbreak))))
 
-(defobject system-controller (bodies))
+(defobject system-controller (systems current-system))
 
-(defmeth system-controller update-positions (time)
+(defmeth system-controller update-positions (time syskey)
          (let ((new-coords nil))
-           (dolist (b bodies)
+           (dolist (b (gethash syskey (this 'systems)))
              (push (list (funcall b 'update-pos time)
                          (funcall b 'name))
                    new-coords))
            new-coords))
 
 (system-controller sys-control)
-(sys-control 'bodies *bodies*)
+(sys-control 'systems (make-hash-table))
+(setf (gethash 'sol-system (sys-control 'systems)) *planets*)
+(setf (gethash 'earth-system (sys-control 'systems)) *earth-system*)
+(sys-control 'current-system 'sol-system)
 
 (defun play ()
   (input-loop handle prompt-window
-              (system-grid 'update-with-tags (sys-control 'update-positions time))))
+              (system-grid 'update-with-tags (sys-control 'update-positions
+                                                          time
+                                                          (sys-control 'current-system)))))
 
 (defun main ()
   (connect-console)
@@ -247,5 +306,7 @@
   (info-window 'display "Hello there. This is a test.")
   (play)
   (close-console))
+
+; (format t "~a~%" (handle "quit"))
 
 (main)
